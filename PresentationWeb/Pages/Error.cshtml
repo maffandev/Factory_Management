@@ -1,0 +1,27 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Something Went Wrong";
+}
+
+<div class="login-wrapper">
+    <div class="card login-card shadow-sm login-card-animate">
+        <div class="card-body p-4 text-center">
+            <span class="bi bi-exclamation-triangle text-warning" style="font-size: 2.5rem;"></span>
+            <h4 class="card-title mt-3 mb-2">Something Went Wrong</h4>
+            <p class="text-muted mb-4">
+                We could not complete your request. Please try again, and contact your
+                administrator if the problem continues.
+            </p>
+
+            @if (Model.ShowRequestId)
+            {
+                <p class="small text-muted mb-4">
+                    Reference ID: <code>@Model.RequestId</code>
+                </p>
+            }
+
+            <a asp-page="/Index" class="btn btn-primary w-100">Back to Dashboard</a>
+        </div>
+    </div>
+</div>

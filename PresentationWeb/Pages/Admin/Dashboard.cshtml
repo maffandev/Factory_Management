@@ -1,0 +1,515 @@
+@page
+@model DashboardModel
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+@await Html.PartialAsync("_Navbar")
+@Html.AntiForgeryToken()
+
+<div class="container-fluid px-4">
+
+    @if (Model.DelayedArticles.Any())
+    {
+        var todayPk = Domain.Common.PakistanTime.Today.ToString("yyyy-MM-dd");
+        <div class="alert alert-danger py-1 px-3 mb-2 d-none align-items-center justify-content-between shadow-sm border-danger border-start border-4 small"
+             id="deptDelayCompactBanner"
+             data-today="@todayPk">
+            <div class="text-truncate me-2">
+                <span class="bi bi-exclamation-triangle-fill me-1"></span>
+                <strong>@Model.DelayedArticles.Count article(s)</strong> delayed (&gt; 3 days in dept)
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size:0.75rem;" id="btnFilterDelayedBanner">
+                    Filter
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size:0.75rem;" data-bs-toggle="modal" data-bs-target="#delayedArticlesModal">
+                    View (@Model.DelayedArticles.Count)
+                </button>
+                <button type="button" class="btn-close" style="font-size:0.65rem;" id="btnDismissDelayBanner" title="Dismiss for today (will remind again tomorrow)" aria-label="Close"></button>
+            </div>
+        </div>
+    }
+
+    <!-- Stat cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-primary text-white me-3"><span class="bi bi-box-seam"></span></div>
+                    <div>
+                        <div class="text-muted small">Active Articles</div>
+                        <div class="fs-3 fw-bold" id="statActiveArticles">@Model.ActiveArticles</div>
+                        <div class="small text-muted">Knit: <strong>@Model.KnitArticles</strong> · Woven: <strong>@Model.WovenArticles</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-success text-white me-3"><span class="bi bi-people"></span></div>
+                    <div>
+                        <div class="text-muted small">Managers</div>
+                        <div class="fs-3 fw-bold">@Model.ManagerCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-info text-white me-3"><span class="bi bi-person-badge"></span></div>
+                    <div>
+                        <div class="text-muted small">Readers</div>
+                        <div class="fs-3 fw-bold">@Model.ReaderCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <a href="/Admin/ArticleForm" class="btn btn-primary">
+                    <span class="bi bi-plus-lg me-1"></span>New Article
+                </a>
+
+                <!-- Easy-to-use Category Filter Buttons (All / Knit / Woven) -->
+                <div class="btn-group" role="group" aria-label="Category Quick Filter" id="catQuickFilter">
+                    <button type="button" class="btn btn-primary cat-filter-btn active" data-cat="All">
+                        <span class="bi bi-collection me-1"></span>All
+                    </button>
+                    <button type="button" class="btn btn-outline-primary cat-filter-btn" data-cat="Knit">
+                        <span class="bi bi-layers me-1"></span>Knit
+                    </button>
+                    <button type="button" class="btn btn-outline-primary cat-filter-btn" data-cat="Woven">
+                        <span class="bi bi-grid-3x3-gap me-1"></span>Woven
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Search</label>
+                    <input type="text" class="form-control" id="txtSearch" placeholder="Company / code / colour" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Season</label>
+                    <select class="form-select" id="selSeason">
+                        <option value="All">All</option>
+                        <option>Summer</option>
+                        <option>Winter</option>
+                        <option>Spring</option>
+                        <option>Autumn</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Status</label>
+                    <select class="form-select" id="selStatus">
+                        <option value="all">All</option>
+                        <option value="delayed">Dept Delay (&gt; 3 Days)</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="dueSoon">Due Soon</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Sort by Days Left</label>
+                    <select class="form-select" id="selSort">
+                        <option value="none">None</option>
+                        <option value="low">Low → High</option>
+                        <option value="high">High → Low</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="button" class="btn btn-outline-secondary" id="btnReset">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Articles table -->
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"></th>
+                        <th>Company</th>
+                        <th>Article Code</th>
+                        <th>Category</th>
+                        <th>Colour</th>
+                        <th>Fabric(s)</th>
+                        <th>Qty</th>
+                        <th>Progress / Department Status</th>
+                        <th>Delivery</th>
+                        <th>Days Left</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="articlesBody">
+                    <tr><td colspan="11" class="text-center text-muted py-4">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delayed Articles Modal (Compact Popup) -->
+@if (Model.DelayedArticles.Any())
+{
+    <div class="modal fade" id="delayedArticlesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-danger-subtle py-2">
+                    <h6 class="modal-title fw-bold text-danger mb-0">
+                        <span class="bi bi-exclamation-triangle-fill me-1"></span>
+                        Delayed Articles (&gt; 3 Days in Department)
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Article</th>
+                                <th>Company</th>
+                                <th>Department</th>
+                                <th>Days</th>
+                                <th class="text-end pe-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var da in Model.DelayedArticles)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-semibold">@da.ArticleCode</td>
+                                    <td>@da.CompanyName</td>
+                                    <td><span class="badge text-bg-danger">@(da.CurrentDepartmentName ?? "Dept")</span></td>
+                                    <td class="fw-semibold text-danger">@da.CurrentDepartmentDays days</td>
+                                    <td class="text-end pe-3">
+                                        <a href="/Admin/ArticleDetail/@da.Id" class="btn btn-sm btn-outline-primary py-0 px-2">View</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Fabric details modal -->
+<div class="modal fade" id="fabricModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Fabric Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-1 small text-muted" id="fabricCounter"></div>
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        <tr><th style="width:45%;">Fabric Code</th><td id="fbCode">—</td></tr>
+                        <tr><th>Invoice #</th><td id="fbInv">—</td></tr>
+                        <tr><th>Fabric Type</th><td id="fbType">—</td></tr>
+                        <tr><th>Color</th><td id="fbColor">—</td></tr>
+                        <tr><th>Used Qty</th><td id="fbQty">—</td></tr>
+                        <tr><th>Status</th><td id="fbStatus">—</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button class="btn btn-outline-secondary" id="fbPrev"><span class="bi bi-chevron-left"></span> Prev</button>
+                <button class="btn btn-outline-secondary" id="fbNext">Next <span class="bi bi-chevron-right"></span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        const tbody = document.getElementById('articlesBody');
+        const apiBase = '@Url.Page("Dashboard", "ArticlesLive")';
+        const pinBase = '@Url.Page("Dashboard", "TogglePin")';
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+        let allFabrics = [];
+        let fabricIndex = 0;
+        let currentRows = [];
+        let selectedCategory = 'All';
+
+        // Category Quick Filter buttons
+        document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedCategory = btn.getAttribute('data-cat') || 'All';
+                document.querySelectorAll('.cat-filter-btn').forEach(b => {
+                    const active = b === btn;
+                    b.classList.toggle('active', active);
+                    b.classList.toggle('btn-primary', active);
+                    b.classList.toggle('btn-outline-primary', !active);
+                });
+                load();
+            });
+        });
+
+        // Compact Delay Banner: show unless dismissed today (resets automatically next day)
+        const delayBanner = document.getElementById('deptDelayCompactBanner');
+        if (delayBanner) {
+            const todayKey = delayBanner.getAttribute('data-today');
+            const dismissedDate = localStorage.getItem('ka_delay_dismiss_date');
+            if (dismissedDate !== todayKey) {
+                delayBanner.classList.remove('d-none');
+                delayBanner.classList.add('d-flex');
+            }
+            document.getElementById('btnDismissDelayBanner')?.addEventListener('click', () => {
+                localStorage.setItem('ka_delay_dismiss_date', todayKey);
+                delayBanner.classList.remove('d-flex');
+                delayBanner.classList.add('d-none');
+            });
+        }
+
+        document.getElementById('btnFilterDelayedBanner')?.addEventListener('click', () => {
+            document.getElementById('selStatus').value = 'delayed';
+            load();
+        });
+
+        // ---- Fetch + render ----
+        async function load() {
+            const q = document.getElementById('txtSearch').value.trim();
+            const season = document.getElementById('selSeason').value;
+            const status = document.getElementById('selStatus').value;
+            const sort = document.getElementById('selSort').value;
+
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">Loading…</td></tr>';
+
+            const url = apiBase
+                + '&search=' + encodeURIComponent(q)
+                + '&category=' + encodeURIComponent(selectedCategory)
+                + '&season=' + encodeURIComponent(season)
+                + '&status=' + encodeURIComponent(status)
+                + '&sort=' + encodeURIComponent(sort);
+
+            const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const rows = await res.json();
+            render(rows);
+        }
+
+        function render(rows) {
+            currentRows = rows;
+
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No articles found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => {
+                const rowCls = [];
+                if (r.isDepartmentDelayed) {
+                    rowCls.push('table-danger border-start border-danger border-4');
+                } else if (r.isOverdue) {
+                    rowCls.push('row-overdue');
+                } else if (r.isDueSoon) {
+                    rowCls.push('row-due-soon');
+                }
+                if (r.isPinned) rowCls.push('row-pinned');
+
+                const dayBadge = r.isDelivered
+                    ? '<span class="badge text-bg-secondary">Delivered</span>'
+                    : r.isOverdue
+                        ? `<span class="badge text-bg-danger">Overdue by ${Math.abs(r.daysLeft)} days</span>`
+                        : (r.isDueSoon
+                            ? `<span class="badge text-bg-warning text-dark">${r.daysLeft} days left</span>`
+                            : `<span class="badge text-bg-light text-dark border">${r.daysLeft} days</span>`);
+
+                const catBadge = r.category === 'Woven'
+                    ? '<span class="badge text-bg-warning text-dark">Woven</span>'
+                    : '<span class="badge text-bg-primary">Knit</span>';
+
+                const partialDeliveryBadge = (r.totalDeliveredQuantity > 0 && !r.isDelivered)
+                    ? `<div class="mt-1"><span class="badge text-bg-success" title="Partial delivery in progress">Delivered: ${r.totalDeliveredQuantity}/${r.totalDeliverableQuantity} pcs (${r.remainingDeliverableQuantity} left)</span></div>`
+                    : '';
+
+                const deptInlineBadge = r.isDepartmentDelayed
+                    ? `<span class="badge text-bg-danger" title="Delayed in ${esc(r.currentDepartmentName)} (${r.currentDepartmentDays} days)"><span class="bi bi-exclamation-triangle-fill me-1"></span>${esc(r.currentDepartmentName)} (${r.currentDepartmentDays}d)</span>`
+                    : (r.currentDepartmentName
+                        ? `<span class="small text-muted text-truncate" style="max-width:110px;" title="At ${esc(r.currentDepartmentName)} (${r.currentDepartmentDays}d)">${esc(r.currentDepartmentName)}</span>`
+                        : '');
+
+                const fabricCell = renderFabrics(r);
+
+                return `<tr class="${rowCls.join(' ')}" data-id="${r.id}">
+                    <td>
+                        <button class="btn btn-sm btn-link pin-btn ${r.isPinned ? 'text-warning' : 'text-muted'}"
+                                data-id="${r.id}" title="${r.isPinned ? 'Unpin' : 'Pin'}">
+                            <span class="bi ${r.isPinned ? 'bi-pin-fill' : 'bi-pin'}"></span>
+                        </button>
+                    </td>
+                    <td>${esc(r.companyName)}</td>
+                    <td>
+                        <span class="fw-semibold">${esc(r.articleCode)}</span>
+                        ${renderAltCodes(r)}
+                    </td>
+                    <td>${catBadge}</td>
+                    <td>${esc(r.color)}</td>
+                    <td>${fabricCell}</td>
+                    <td>${r.quantity ?? 0}</td>
+                    <td style="min-width:170px;">
+                        <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                            <span class="badge text-bg-info">${r.doneDepartments}/${r.totalDepartments}</span>
+                            ${deptInlineBadge}
+                        </div>
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar ${r.isDepartmentDelayed ? 'bg-danger' : ''}" role="progressbar" style="width:${progressPct(r)}%;" aria-valuenow="${progressPct(r)}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        ${partialDeliveryBadge}
+                    </td>
+                    <td>${formatDate(r.deliveryDate)}</td>
+                    <td>${dayBadge}</td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="/Admin/ArticleDetail/${r.id}">View</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="/Admin/ArticleEdit/${r.id}">Edit</a>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            // bind pin
+            tbody.querySelectorAll('.pin-btn').forEach(btn => {
+                btn.addEventListener('click', () => togglePin(Number(btn.dataset.id)));
+            });
+
+            // bind fabric click
+            tbody.querySelectorAll('.fabric-link').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openFabrics(Number(el.dataset.id));
+                });
+            });
+        }
+
+        function renderAltCodes(r) {
+            const alts = r.alternateCodes || [];
+            if (!alts.length) return '';
+            return alts.map(c => ` <span class="badge text-bg-secondary" title="Alternate code">${esc(c)}</span>`).join('');
+        }
+
+        function renderFabrics(r) {
+            const list = r.fabrics || [];
+            if (!list.length) return '<span class="text-muted">—</span>';
+            const first = esc(list[0].fabricCode) || '—';
+            const extra = list.length > 1 ? ` <span class="badge text-bg-secondary">+${list.length - 1}</span>` : '';
+            return `<a href="#" class="fabric-link text-decoration-none" data-id="${r.id}">${first}${extra}</a>`;
+        }
+
+        async function togglePin(id) {
+            const form = new URLSearchParams();
+            form.append('id', id);
+
+            const res = await fetch(pinBase, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'RequestVerificationToken': token
+                },
+                body: form.toString()
+            });
+            const data = await res.json();
+            if (!data.success) {
+                showToast(data.message || 'Could not update pin.', 'error');
+            }
+            load();
+        }
+
+        // ---- Fabric modal ----
+        function openFabrics(articleId) {
+            const row = currentRows.find(r => r.id === articleId);
+            if (!row || !(row.fabrics || []).length) return;
+            allFabrics = row.fabrics;
+            fabricIndex = 0;
+            showFabric();
+            const modal = new bootstrap.Modal(document.getElementById('fabricModal'));
+            modal.show();
+        }
+
+        function showFabric() {
+            const f = allFabrics[fabricIndex];
+            document.getElementById('fabricCounter').textContent =
+                `Fabric ${fabricIndex + 1} of ${allFabrics.length}`;
+            document.getElementById('fbCode').textContent = f.fabricCode || '—';
+            document.getElementById('fbInv').textContent = f.invNum || '—';
+            document.getElementById('fbType').textContent = f.fabricType || '—';
+            document.getElementById('fbColor').textContent = f.color || '—';
+            document.getElementById('fbQty').textContent = f.quantityUsed + ' ' + (f.unit || '');
+            const st = f.status === 'OutOfStock'
+                ? '<span class="badge text-bg-danger">Out Of Stock</span>'
+                : '<span class="badge text-bg-success">In Stock</span>';
+            document.getElementById('fbStatus').innerHTML = st;
+
+            const single = allFabrics.length <= 1;
+            document.getElementById('fbPrev').disabled = single;
+            document.getElementById('fbNext').disabled = single;
+        }
+
+        document.getElementById('fbPrev').addEventListener('click', () => {
+            if (fabricIndex > 0) { fabricIndex--; showFabric(); }
+        });
+        document.getElementById('fbNext').addEventListener('click', () => {
+            if (fabricIndex < allFabrics.length - 1) { fabricIndex++; showFabric(); }
+        });
+
+        // ---- Utilities ----
+        function progressPct(r) {
+            if (!r.totalDepartments) return 0;
+            return Math.round((r.doneDepartments / r.totalDepartments) * 100);
+        }
+
+        function esc(s) {
+            if (!s) return '—';
+            const d = document.createElement('div');
+            d.textContent = String(s);
+            return d.innerHTML;
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        // ---- Events ----
+        let debounce;
+        document.getElementById('txtSearch').addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(load, 350);
+        });
+
+        document.getElementById('selSeason').addEventListener('change', load);
+        document.getElementById('selStatus').addEventListener('change', load);
+        document.getElementById('selSort').addEventListener('change', load);
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            document.getElementById('txtSearch').value = '';
+            document.getElementById('selSeason').value = 'All';
+            document.getElementById('selStatus').value = 'all';
+            document.getElementById('selSort').value = 'none';
+            selectedCategory = 'All';
+            document.querySelectorAll('.cat-filter-btn').forEach(b => {
+                const active = b.getAttribute('data-cat') === 'All';
+                b.classList.toggle('active', active);
+                b.classList.toggle('btn-primary', active);
+                b.classList.toggle('btn-outline-primary', !active);
+            });
+            load();
+        });
+
+        load();
+    })();
+</script>
+}

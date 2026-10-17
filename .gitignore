@@ -1,0 +1,54 @@
+# --- Build output (generated, never commit) ---
+[Bb]in/
+[Oo]bj/
+publish/
+[Pp]ublish/
+*.publish.xml
+*.pubxml.user
+
+# --- Visual Studio / editor personal files ---
+.vs/
+*.user
+*.suo
+*.rsuser
+*.userosscache
+.vscode/
+.idea/
+*.DotSettings.user
+
+# --- Test and log output ---
+TestResults/
+*.log
+logs/
+
+# --- Local secrets (never commit) ---
+.env
+.env.*
+secrets.json
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+*.key
+*.pem
+
+# --- Database files and backups (can hold real factory data) ---
+*.mdf
+*.ldf
+*.ndf
+*.bak
+*.bacpac
+*.sqlite
+*.db
+
+# --- Real uploaded files / exports (uncomment if they apply to you) ---
+# wwwroot/uploads/
+# *.xlsx
+# *.csv
+
+# --- OS junk ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+# --- Publish profiles (can contain hosting credentials) ---
+*.pubxml
+PublishProfiles/

@@ -1,0 +1,16 @@
+using System;
+using Domain.Common;
+
+namespace Domain.Entities;
+
+public class ArticleAlternateCode
+{
+    public int Id { get; set; }
+
+    public int ArticleId { get; set; }
+    public Article Article { get; set; } = null!;
+
+    public string Code { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; } = PakistanTime.Now;
+}

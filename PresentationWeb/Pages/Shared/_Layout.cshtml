@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Factory Management</title>
+    <link rel="icon" href="~/favicon.ico" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+    <link href="~/css/site.css" rel="stylesheet" />
+    <link href="~/css/premium.css" rel="stylesheet" />
+    <link href="~/css/toast.css" rel="stylesheet" />
+
+    <!-- Loaded in <head> so the saved theme is applied before the first paint. -->
+    <script src="~/js/theme.js"></script>
+
+    @await RenderSectionAsync("ExtraHead", required: false)
+</head>
+<body>
+    <div id="mainContent">
+        @RenderBody()
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/toast.js"></script>
+    <script src="~/js/keyboard-nav.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

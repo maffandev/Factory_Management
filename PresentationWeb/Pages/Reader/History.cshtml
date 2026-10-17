@@ -1,0 +1,182 @@
+@page "/Reader/History"
+@model HistoryModel
+@{
+    ViewData["Title"] = "History";
+    var isBoth = string.Equals(Model.UserCategory, "Both", StringComparison.OrdinalIgnoreCase);
+}
+
+@await Html.PartialAsync("_Navbar")
+
+<div class="container-fluid px-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h4 class="mb-0">History — Delivered Articles</h4>
+        <div class="d-flex align-items-center gap-2">
+            @if (isBoth)
+            {
+                <div class="btn-group btn-group-sm" role="group" aria-label="Category Quick Filter">
+                    <button type="button" class="btn btn-primary cat-filter-btn active" data-cat="All">All</button>
+                    <button type="button" class="btn btn-outline-primary cat-filter-btn" data-cat="Knit">Knit</button>
+                    <button type="button" class="btn btn-outline-primary cat-filter-btn" data-cat="Woven">Woven</button>
+                </div>
+            }
+            else
+            {
+                <span class="badge @(Model.UserCategory == "Woven" ? "text-bg-warning text-dark" : "text-bg-primary")">
+                    Category: @Model.UserCategory Only
+                </span>
+            }
+            <a asp-page="/Reader/Dashboard" class="btn btn-outline-secondary btn-sm"><span class="bi bi-arrow-left"></span> Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Search</label>
+                    <input type="text" class="form-control" id="historySearch" placeholder="Search by article code or company..." autocomplete="off" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Delivered From</label>
+                    <input type="date" class="form-control" id="historyFrom" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Delivered To</label>
+                    <input type="date" class="form-control" id="historyTo" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-secondary w-100" id="btnResetHistory">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Article</th>
+                        <th>Company</th>
+                        <th>Category</th>
+                        <th>Colour</th>
+                        <th>Fabric(s)</th>
+                        <th>Qty</th>
+                        <th>Delivery</th>
+                        <th>Delivered On</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr><td colspan="9" class="text-center text-muted py-4">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        const apiBase = '@Url.Page("History", "Articles")';
+        const tbody = document.getElementById('historyBody');
+        let selectedCategory = 'All';
+
+        document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedCategory = btn.getAttribute('data-cat') || 'All';
+                document.querySelectorAll('.cat-filter-btn').forEach(b => {
+                    const active = b === btn;
+                    b.classList.toggle('active', active);
+                    b.classList.toggle('btn-primary', active);
+                    b.classList.toggle('btn-outline-primary', !active);
+                });
+                load();
+            });
+        });
+
+        async function load() {
+            const search = document.getElementById('historySearch').value.trim();
+            const from = document.getElementById('historyFrom').value;
+            const to = document.getElementById('historyTo').value;
+
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Loading…</td></tr>';
+
+            const url = apiBase
+                + '&search=' + encodeURIComponent(search)
+                + '&category=' + encodeURIComponent(selectedCategory)
+                + '&from=' + encodeURIComponent(from)
+                + '&to=' + encodeURIComponent(to);
+            const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const rows = await res.json();
+            render(rows);
+        }
+
+        function render(rows) {
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No delivered articles found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => {
+                const fabrics = r.fabrics || [];
+                const fabricCell = fabrics.length ? fabrics.map(f => esc(f.fabricCode)).join(', ') : '—';
+                const catBadge = r.category === 'Woven'
+                    ? '<span class="badge text-bg-warning text-dark">Woven</span>'
+                    : '<span class="badge text-bg-primary">Knit</span>';
+                return `<tr>
+                    <td class="fw-semibold">${esc(r.articleCode)}</td>
+                    <td>${esc(r.companyName)}</td>
+                    <td>${catBadge}</td>
+                    <td>${esc(r.color)}</td>
+                    <td>${fabricCell}</td>
+                    <td>${r.quantity ?? '—'}</td>
+                    <td>${formatDate(r.deliveryDate)}</td>
+                    <td>${r.deliveredAt ? formatDateTime(r.deliveredAt) : '—'}</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Reader/ArticleDetail/${r.id}">View</a></td>
+                </tr>`;
+            }).join('');
+        }
+
+        let debounce;
+        document.getElementById('historySearch').addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(load, 350);
+        });
+        document.getElementById('historyFrom').addEventListener('change', load);
+        document.getElementById('historyTo').addEventListener('change', load);
+        document.getElementById('btnResetHistory').addEventListener('click', () => {
+            document.getElementById('historySearch').value = '';
+            document.getElementById('historyFrom').value = '';
+            document.getElementById('historyTo').value = '';
+            selectedCategory = 'All';
+            document.querySelectorAll('.cat-filter-btn').forEach(b => {
+                const active = b.getAttribute('data-cat') === 'All';
+                b.classList.toggle('active', active);
+                b.classList.toggle('btn-primary', active);
+                b.classList.toggle('btn-outline-primary', !active);
+            });
+            load();
+        });
+
+        function esc(s) {
+            if (!s) return '—';
+            const d = document.createElement('div');
+            d.textContent = String(s);
+            return d.innerHTML;
+        }
+        function formatDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
+        }
+        function formatDateTime(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+
+        load();
+    })();
+    </script>
+}
